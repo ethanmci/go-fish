@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+
+<!--
+Title: Assignment-1
+Author: Ethan McIntyre
+Objective: A javascript based recreation of the go fish game. 
+Design Description: 
+createDeck - generates a deck through for loops
+dealCards - places 7 random cards into both player and comp's hands, deletes cards from deck
+
+inputHandler - takes input from textbox
+    if game is not started and start is typed, calls startGame()
+    if game is started and restart is typed, calls startGame()
+    if game is in progress, sends text to turn()
+    else displays invalid entry
+    displays user's hand using displayHand()
+    updates score calling displayScore()
+    
+goFish - pulls a random card from the deck if possible, adds to selected hand
+
+startGame - starts the game
+    resets player and computer hands
+    resets book count
+    creates deck with createDeck()
+    deals cards using dealCards()
+
+displayHand - gets player hand data, formats it for display
+
+displayScore - gets player and computer score, formats it for display
+
+turn - checks computer hand for entered value
+    if comp hand has value, user plays again
+    if comp hand doens't have the value, computer gets turn by calling compTurn(), goFish() called for user hand
+    checks if any books were gained with bookCheck()
+    checks if anyone has one with winCheck()
+    outputs status to HTML
+    
+compTurn - computer's turn
+    guesses random card value
+    if found in player hand, comp guesses again
+    if not found, goFish() called for comp hand
+    outputs status to string
+
+bookCheck - checks user and comp hands for new books
+    if book found, cards removed from the hand
+    score added to respective person
+
+winCheck - if no cards left in deck, checks if computer or player has won. outputs result to string 
+-->
+
+<head>
+    <title>Go Fish!</title>
+</head>
+
+<body>
+    <div style="margin: 0 auto; padding: 10%; width: 50%;">
+        <p id="game-output"></p>
+        <p id="current-score"></p>
+        <p id="player-hand-vis"></p>
+        <input id="player-input">
+        <button id="confirm-btn" onclick='inputHandler()'>Confirm</button>
+    </div>  
+    <script>
+        //main JS----------------------------------
+
+        var input = document.getElementById("player-input");
+        var output = document.getElementById("game-output");
+        var handVis = document.getElementById("player-hand-vis");
+        var scoreOut = document.getElementById("current-score");
+
+        //button triggering on hitting enter QOL
+        input.addEventListener("keyup", function(e){
+            if(e.keyCode === 13){
+                e.preventDefault();
+                document.getElementById("confirm-btn").click();
+            }
+        });
+
+        var deck = [];
+        var playerHand = [];
+        var compHand = [];
+        var validGuess = ["ace", "2", "3", "4", "5", "6", "7", "8", "9", "10", "jack", "queen", "king"];
+        var suits = ["Diamonds", "Hearts", "Clubs", "Spades"];
+        var currBooks = ({ playerBooks: 0, compBooks: 0 });
+        var gamePlaying = false;
+
+        //rules
+        output.innerHTML = "Go Fish! Ask for cards using the text box. 4 Cards of one value make a book. " + 
+            "The winner is decided by whoever has the most books when the deck runs out. Type 'start' to begin! (Type restart to 'restart' the game at any time)"
+
+        var currentTurn = null;
+
+        //functions
+        function inputHandler(){
+            let text = input.value;
+            input.value = '';
+            if(text.toLowerCase() == "start" && gamePlaying == false){
+                startGame();
+                output.innerHTML = "Game started! It's your turn, ";
+                gamePlaying = true;
+            } else if (text.toLowerCase() == "restart") {
+                startGame(); 
+                output.innerHTML = "Game restarted! It's your turn";
+            } else if (validGuess.filter(i => i == text.toLowerCase()).length == 1 && gamePlaying == true){
+                turn(text.toLowerCase());
+            } else if(gamePlaying == false) {
+                output.innerHTML = "Invalid entry, type 'start' to play a game";
+            } else {
+                output.innerHTML = "Invalid entry";    
+            }
+
+            //display updated hand at end of each input
+            handVis.innerHTML = displayHand();
+            scoreOut.innerHTML = displayScore();
+        }
+
+        function createDeck() {
+            deck = [];
+            for (i = 0; i < 4; i++) {
+                for (j = 1; j <= 13; j++) {
+                    let newVal;
+                    if (j == 1) {
+                        newVal = "Ace";
+                    } else if (j == 11) {
+                        newVal = "Jack";
+                    } else if (j == 12) {
+                        newVal = "Queen";
+                    } else if (j == 13) {
+                        newVal = "King";
+                    } else {
+                        newVal = j.toString();
+                    }
+                    deck.push({ suit: suits[i], value: newVal });
+                }
+            }
+        }
+        
+        function dealCards(hand, cards){
+            for(i = 0; i < 7; i++){
+                let selCard = cards.splice(Math.floor(Math.random() * cards.length), 1);
+                hand.push(selCard);
+            }
+        }
+
+        function goFish(hand, cards){
+            if(cards.length > 0){
+                let selCard = cards.splice(Math.floor(Math.random() * cards.length), 1);
+                hand.unshift(selCard);
+                return "The " + selCard[0].value + " of " + selCard[0].suit + " was drawn. There are " + cards.length + " cards left in the deck. ";
+            } else {
+                return "No cards left to fish! ";
+            }
+        }
+
+        function startGame(){
+            createDeck();
+            playerHand = [];
+            compHand = [];
+            dealCards(playerHand, deck);
+            dealCards(compHand, deck);
+            currBooks.compBooks = 0;
+            currBooks.playerBooks = 0;
+        }
+
+        function displayHand(){
+            let stringOut = 'Current Hand: ';
+            playerHand.forEach(i => stringOut += i[0].value + " of " + i[0].suit + ", ");
+            return stringOut;
+        }
+
+        function displayScore(){
+            let stringOut = "Computer Books: " + currBooks.compBooks + " ----- Player Books: " + currBooks.playerBooks;
+            return stringOut;
+        }
+
+        function turn(text){
+            let stringOut = 'You asked for ' + text + ".";
+            let newCards = compHand.filter(i => i[0].value.toLowerCase() == text);
+            compHand = compHand.filter(i => i[0].value.toLowerCase() != text);
+            if(newCards.length <= 0){
+                stringOut += "You got nothing. Go fish! " + goFish(playerHand, deck);
+                stringOut = compTurn(stringOut);
+            } else {
+                playerHand = newCards.concat(playerHand);
+                stringOut += "You got " + newCards.length + " " + text + "'s, guess again!";
+            }
+            stringOut = bookCheck(stringOut);
+            stringOut = winCheck(stringOut, deck);
+            output.innerHTML = stringOut;
+        }
+
+        function compTurn(stringOut){
+            let turn = true;
+            while(turn){
+                let compBrain = [...validGuess];
+                compHand.forEach(i => compBrain.unshift(i[0].value.toLowerCase()))
+                let compGuess = compBrain[Math.floor(Math.random() * compBrain.length)];
+                stringOut += 'The computer asked for ' + compGuess + ". ";
+                let newCards = playerHand.filter(i => i[0].value.toLowerCase() == compGuess);
+                if(newCards.length <= 0){
+                    stringOut += "The computer got nothing and went fish! ";
+                    goFish(compHand, deck);
+                    if(deck.length == 0){
+                        stringOut += "There are no cards left in the deck. ";        
+                    } else {
+                        stringOut += "There are " + deck.length + " cards left in the deck. ";    
+                    }
+                    turn = false;
+                } else {
+                    compHand = newCards.concat(compHand);
+                    playerHand = playerHand.filter(i => i[0].value.toLowerCase() != compGuess);
+                    stringOut += "The computer took " + newCards.length + " of your " + compGuess + "'s! ";
+                } 
+            }
+            return stringOut;
+        }        
+        
+        function bookCheck(stringOut){
+            //player book check
+            for(i = 0; i < playerHand.length; i++){
+                let checkVal = playerHand[i][0].value;
+                if (playerHand.filter(i => i[0].value == checkVal).length == 4){
+                    currBooks.playerBooks++;
+                    i = 0;
+                    playerHand = playerHand.filter(i => i[0].value != checkVal);
+                    stringOut += "You added one book of " + checkVal + "'s! ";
+                }
+            }
+
+            //comp book check
+            for(i = 0; i < compHand.length; i++){
+                let checkVal = compHand[i][0].value;
+                if (compHand.filter(i => i[0].value == checkVal).length == 4){
+                    currBooks.compBooks++;
+                    i = 0;
+                    compHand = compHand.filter(i => i[0].value != checkVal);
+                    stringOut += "The computer has added one book of " + checkVal + "'s! ";
+                }
+            }
+            return stringOut;
+        }
+
+        function winCheck(stringOut, cards){
+            if(cards.length == 0){
+                gamePlaying = false;
+                if(currBooks.playerBooks > currBooks.compBooks) {
+                    stringOut += "<b>You won with " + currBooks.playerBooks + " books!</b> ";
+                } else if (currBooks.playerBooks < currBooks.compBooks) {
+                    stringOut += "<b>The computer won with " + currBooks.compBooks + " books!</b> ";
+                } else {
+                    stringOut += "<b>Tie game at " + currBooks.playerBooks + "!</b> ";    
+                }
+                stringOut += "Type 'start' or 'restart' to play again!";        
+            }
+            return stringOut;
+        }
+    </script>
+</body>
+
+</html>
